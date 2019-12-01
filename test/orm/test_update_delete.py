@@ -1220,3 +1220,67 @@ class InheritTest(fixtures.DeclarativeMappedTest):
             set(s.query(Person.name, Engineer.engineer_name)),
             set([("e1", "e1"), ("e22", "e55")]),
         )
+
+class DeletePolymorphicTest(fixtures.DeclarativeMappedTest):
+    __backend__ = True
+
+    @classmethod
+    def setup_classes(cls):
+        Base = cls.DeclarativeBasic
+
+        class Staff(Base):
+            __tablename__ = "staff"
+            position = Column(
+                String(50), nullable=False
+            )
+            id = Column(
+                Integer, primary_key=True, test_needs_autoincrement=True
+            )
+            name = Column(String(50))
+            __mapper_args__ = {'polymorphic_on': position}
+
+        class Sales(Staff):
+            sales_stats = Column(String(50))
+            __mapper_args__ = {'polymorphic_identity': 'sales'}
+
+        class Support(Staff):
+            support_stats = Column(String(50))
+            __mapper_args__ = {'polymorphic_identity': 'support'}
+
+    @classmethod
+    def insert_data(cls):
+        Sales, Support = (
+            cls.classes.Sales,
+            cls.classes.Support,
+        )
+        s = Session(testing.db)
+        s.add_all(
+            [
+                Sales(name="n1", sales_stats="1"),
+                Sales(name="n2", sales_stats="2"),
+                Support(name="n1", support_stats="3"),
+                Support(name="n2", support_stats="4"),
+            ]
+        )
+        s.commit()
+
+    def test_delete_with_fetch_polymorphic(self):
+        Sales, Support = (
+            self.classes.Sales,
+            self.classes.Support,
+        )
+
+        sess = Session()
+        en1, en2 = sess.query(Sales).order_by(Sales.sales_stats).all()
+        mn1, mn2 = sess.query(Support).order_by(Support.support_stats).all()
+        sess.query(Sales).filter(text("name = :name")).params(
+            name="n1"
+        ).delete("fetch")
+        assert en1 not in sess
+        assert en2 in sess
+        assert mn1 in sess # this row is currently being deleted
+        assert mn2 in sess
+
+        en2_, = sess.query(Sales).order_by(Sales.sales_stats).all()
+        mn1_, mn2_ = sess.query(Support).order_by(Support.support_stats).all()
+        eq_([en2_, mn1_, mn2_], [en2, mn1, mn2])
