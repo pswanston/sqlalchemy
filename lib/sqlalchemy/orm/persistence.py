@@ -1707,9 +1707,11 @@ class BulkUD(object):
     def _do_pre(self, querylib):
         query = self.query
 
-        self.context = querylib.QueryContext(query)
         if query._enable_single_crit:
+            self.context = query._compile_context()
             query._adjust_for_single_inheritance(self.context)
+        else:
+            self.context = querylib.QueryContext(query)
 
         if isinstance(query._entities[0], querylib._ColumnEntity):
             # check for special case of query(table)
