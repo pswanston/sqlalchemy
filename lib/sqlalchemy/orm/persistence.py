@@ -1918,9 +1918,15 @@ class BulkDelete(BulkUD):
                     self.query = new_query
 
     def _do_exec(self):
-        delete_stmt = sql.delete(self.primary_table, self.context.whereclause)
+        query = self.query
+        session = query.session
+        context = query._compile_context()
+        delete_stmt = sql.delete(self.primary_table, context.whereclause)
 
-        self._execute_stmt(delete_stmt)
+        self.result = session.execute(
+            delete_stmt, mapper=self.mapper, params=query._params
+        )
+        self.rowcount = self.result.rowcount
 
     def _do_post(self):
         session = self.query.session
