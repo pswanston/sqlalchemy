@@ -1708,6 +1708,8 @@ class BulkUD(object):
         query = self.query
 
         self.context = querylib.QueryContext(query)
+        if query._enable_single_crit:
+            query._adjust_for_single_inheritance(self.context)
 
         if isinstance(query._entities[0], querylib._ColumnEntity):
             # check for special case of query(table)
